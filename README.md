@@ -1,6 +1,22 @@
-# 🕷 makescraper
+# 🕷 Homestuck - makescraper
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/LukazDane/makescraper)](https://goreportcard.com/report/github.com/LukazDane/makescraper)
+
+- This project has been adapted from the original makescraper project to suit an individual need. It is designed to scrape the expansive homestuck archive. This scraper retrieves Page Titles, Url's, and the first/primary img(when found)
+
+### Challanges:
+
+- Looping visits
+- Infinite visits
+- mspa, homestuck, selector structure
+- Request speeds, amount, and server blockage
+
+### Future Plans:
+
+- Refine for use with ANY web comic archive
+- Create a seperate JSON file for only images
+- scrape all non-image media into a file
+- compile "Pester Logs"/main text into a single document
 
 _Create your very own web scraper and crawler using Go and [Colly](https://go-colly.org)!_
 

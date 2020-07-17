@@ -5,71 +5,74 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
+	"time"
 
 	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/extensions"
 )
 
 type pageName struct {
 	ListedAs string `json:"listedas"`
 	CodedAs  string `json:"codedas"`
+	Himg     string `json:"img"`
 }
 
-// main() contains code adapted from example found in Colly's docs:
-// http://go-colly.org/docs/examples/basic/
 func main() {
 
 	pages := []pageName{}
 
 	// Instantiate default collector
-	c := colly.NewCollector()
+	c := colly.NewCollector(
+		colly.MaxDepth(2),
+		colly.Async(true),
+		// Attach a debugger to the collector, prints found selector and inner info requiested
+		// colly.Debugger(&debug.LogDebugger{}),
+	)
+	// Randomizes user agent to avoid being blocked by server for too many requests...again
+	extensions.RandomUserAgent(c)
 
+	c.Limit(&colly.LimitRule{
+		DomainGlob:  "*http*",
+		Parallelism: 2,
+		RandomDelay: 5 * time.Second,
+	})
 	// Before making a request print "Visiting ..."
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Println("Visiting", r.URL)
 	})
-
 	c.OnError(func(_ *colly.Response, err error) {
 		log.Println("Something went wrong:", err)
 	})
-
-	c.OnResponse(func(r *colly.Response) {
-		fmt.Println("Visited", r.Request.URL)
-	})
-
-	// c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-	// 	e.Request.Visit(e.Attr("href"))
-	// })
-
-	// c.OnHTML("body > div.o_content > div > div > div > br", func(e *colly.HTMLElement) {
-	// 	fmt.Println("PAge and Date: ", e.Text)
-	// })
-
-	// On every a element which has href attribute call callback
+	// Homestuck archive specific, checks each 2nd link on page
 	c.OnHTML("body > div.o_content > div > div > div > a:nth-child(2n+2)", func(e *colly.HTMLElement) {
 		page := pageName{}
 		page.ListedAs = e.Text
 		p := e.Attr("href")
-		page.CodedAs = strings.TrimPrefix(p, "/story/")
-		// Print link
+		// return page url value to determine true page number
+		page.CodedAs = p
+		// page.URL = e.Request.URL
+		e.Request.Visit(p)
+		c.OnHTML("#content_container > div > img", func(e *colly.HTMLElement) {
+			link := e.Attr("src")
+			// fmt.Println(link)
+			page.Himg = link
+
+		})
 		pages = append(pages, page)
-		fmt.Printf("Page Title: %q -> %s\n", e.Text, page.ListedAs)
-		fmt.Printf("Page Code: %s\n", page.CodedAs)
+		// fmt.Printf("Page Title: %q -> %s\n", e.Text, page.ListedAs)
+		// fmt.Printf("Page Code: %s\n", page.CodedAs)
 	})
-
-	c.OnXML("//h1", func(e *colly.XMLElement) {
-		fmt.Println(e.Text)
-	})
-
+	// when progam reaches end, return text to show that it is done
 	c.OnScraped(func(r *colly.Response) {
 		fmt.Println("Finished", r.Request.URL)
 	})
-
-	// Start scraping on https://hackerspaces.org
+	// Site set to visit, explore making this an input field
 	c.Visit("https://www.homestuck.com/log/story")
+	c.Wait()
 	serializeToJSON(pages)
 
 }
+
 func writeFile(file []byte) {
 	if err := ioutil.WriteFile("output.json", file, 0644); err != nil {
 		log.Fatalf("Unable to write file! %v", err)
